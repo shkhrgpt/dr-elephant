@@ -24,7 +24,7 @@ import scala.async.Async
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.linkedin.drelephant.spark.data.SparkRestDerivedData
@@ -150,6 +150,7 @@ object SparkRestClient {
     val objectMapper = new ObjectMapper() with ScalaObjectMapper
     objectMapper.setDateFormat(dateFormat)
     objectMapper.registerModule(DefaultScalaModule)
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     objectMapper
   }
 

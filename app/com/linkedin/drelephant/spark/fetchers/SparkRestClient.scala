@@ -68,7 +68,8 @@ class SparkRestClient(sparkConf: SparkConf) {
 
     // Limit scope of async.
     async {
-      val attemptTarget = getAttemptTarget(applicationInfo, appTarget)
+      val lastAttemptId = applicationInfo.attempts.maxBy {_.startTime}.attemptId
+      val attemptTarget = lastAttemptId.map(appTarget.path).getOrElse(appTarget)
       val futureJobDatas = async { getJobDatas(attemptTarget) }
       val futureStageDatas = async { getStageDatas(attemptTarget) }
       val futureExecutorSummaries = async { getExecutorSummaries(attemptTarget) }
@@ -88,18 +89,6 @@ class SparkRestClient(sparkConf: SparkConf) {
       case NonFatal(e) => {
         logger.error(s"error reading ${appTarget.getUri}", e)
         throw e
-      }
-    }
-  }
-
-  private def getAttemptTarget(applicationInfo: ApplicationInfo, appTarget: WebTarget): WebTarget = {
-    val lastAttemptId = applicationInfo.attempts.maxBy {_.startTime}.attemptId
-    lastAttemptId match {
-      case Some(attemptId) => {
-        appTarget.path(attemptId)
-      }
-      case None => {
-        appTarget
       }
     }
   }

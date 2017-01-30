@@ -45,17 +45,17 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       an[IllegalArgumentException] should be thrownBy(new SparkRestClient(new SparkConf()))
     }
 
-    it("returns the desired data from the Spark REST API for cluster mode") {
+    it("returns the desired data from the Spark REST API for cluster mode application") {
       import ExecutionContext.Implicits.global
       val fakeJerseyServer = new FakeJerseyServer() {
         override def configure(): Application = super.configure() match {
           case resourceConfig: ResourceConfig =>
             resourceConfig
-              .register(classOf[FetchDataFixtures.ApiResource])
-              .register(classOf[FetchDataFixtures.ApplicationResource])
-              .register(classOf[FetchDataFixtures.JobsResource])
-              .register(classOf[FetchDataFixtures.StagesResource])
-              .register(classOf[FetchDataFixtures.ExecutorsResource])
+              .register(classOf[FetchClusterModeDataFixtures.ApiResource])
+              .register(classOf[FetchClusterModeDataFixtures.ApplicationResource])
+              .register(classOf[FetchClusterModeDataFixtures.JobsResource])
+              .register(classOf[FetchClusterModeDataFixtures.StagesResource])
+              .register(classOf[FetchClusterModeDataFixtures.ExecutorsResource])
           case config => config
         }
       }
@@ -67,9 +67,9 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       val sparkConf = new SparkConf().set("spark.yarn.historyServer.address", s"${historyServerUri.getHost}:${historyServerUri.getPort}")
       val sparkRestClient = new SparkRestClient(sparkConf)
 
-      sparkRestClient.fetchData(FetchDataFixtures.APP_ID) map { restDerivedData =>
-        restDerivedData.applicationInfo.id should be(FetchDataFixtures.APP_ID)
-        restDerivedData.applicationInfo.name should be(FetchDataFixtures.APP_NAME)
+      sparkRestClient.fetchData(FetchClusterModeDataFixtures.APP_ID) map { restDerivedData =>
+        restDerivedData.applicationInfo.id should be(FetchClusterModeDataFixtures.APP_ID)
+        restDerivedData.applicationInfo.name should be(FetchClusterModeDataFixtures.APP_NAME)
         restDerivedData.jobDatas should not be(None)
         restDerivedData.stageDatas should not be(None)
         restDerivedData.executorSummaries should not be(None)
@@ -79,7 +79,7 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       }
     }
 
-    it("returns the desired data from the Spark REST API for client mode") {
+    it("returns the desired data from the Spark REST API for client mode application") {
       import ExecutionContext.Implicits.global
       val fakeJerseyServer = new FakeJerseyServer() {
         override def configure(): Application = super.configure() match {
@@ -101,9 +101,9 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       val sparkConf = new SparkConf().set("spark.yarn.historyServer.address", s"${historyServerUri.getHost}:${historyServerUri.getPort}")
       val sparkRestClient = new SparkRestClient(sparkConf)
 
-      sparkRestClient.fetchData(FetchDataFixtures.APP_ID) map { restDerivedData =>
-        restDerivedData.applicationInfo.id should be(FetchDataFixtures.APP_ID)
-        restDerivedData.applicationInfo.name should be(FetchDataFixtures.APP_NAME)
+      sparkRestClient.fetchData(FetchClusterModeDataFixtures.APP_ID) map { restDerivedData =>
+        restDerivedData.applicationInfo.id should be(FetchClusterModeDataFixtures.APP_ID)
+        restDerivedData.applicationInfo.name should be(FetchClusterModeDataFixtures.APP_NAME)
         restDerivedData.jobDatas should not be(None)
         restDerivedData.stageDatas should not be(None)
         restDerivedData.executorSummaries should not be(None)
@@ -149,7 +149,7 @@ object SparkRestClientTest {
     override def getContext(cls: Class[_]): ObjectMapper = objectMapper
   }
 
-  object FetchDataFixtures {
+  object FetchClusterModeDataFixtures {
     val APP_ID = "application_1"
     val APP_NAME = "app"
 

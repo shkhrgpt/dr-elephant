@@ -45,7 +45,7 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       an[IllegalArgumentException] should be thrownBy(new SparkRestClient(new SparkConf()))
     }
 
-    it("returns the desired data from the Spark REST API") {
+    it("returns the desired data from the Spark REST API for cluster mode") {
       import ExecutionContext.Implicits.global
       val fakeJerseyServer = new FakeJerseyServer() {
         override def configure(): Application = super.configure() match {
@@ -76,6 +76,40 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
       } andThen { case assertion: Try[Assertion] =>
           fakeJerseyServer.tearDown()
           assertion
+      }
+    }
+
+    it("returns the desired data from the Spark REST API for client mode") {
+      import ExecutionContext.Implicits.global
+      val fakeJerseyServer = new FakeJerseyServer() {
+        override def configure(): Application = super.configure() match {
+          case resourceConfig: ResourceConfig =>
+            resourceConfig
+              .register(classOf[FetchClientModeDataFixtures.ApiResource])
+              .register(classOf[FetchClientModeDataFixtures.ApplicationResource])
+              .register(classOf[FetchClientModeDataFixtures.JobsResource])
+              .register(classOf[FetchClientModeDataFixtures.StagesResource])
+              .register(classOf[FetchClientModeDataFixtures.ExecutorsResource])
+          case config => config
+        }
+      }
+
+      fakeJerseyServer.setUp()
+
+      val historyServerUri = fakeJerseyServer.target.getUri
+
+      val sparkConf = new SparkConf().set("spark.yarn.historyServer.address", s"${historyServerUri.getHost}:${historyServerUri.getPort}")
+      val sparkRestClient = new SparkRestClient(sparkConf)
+
+      sparkRestClient.fetchData(FetchDataFixtures.APP_ID) map { restDerivedData =>
+        restDerivedData.applicationInfo.id should be(FetchDataFixtures.APP_ID)
+        restDerivedData.applicationInfo.name should be(FetchDataFixtures.APP_NAME)
+        restDerivedData.jobDatas should not be(None)
+        restDerivedData.stageDatas should not be(None)
+        restDerivedData.executorSummaries should not be(None)
+      } andThen { case assertion: Try[Assertion] =>
+        fakeJerseyServer.tearDown()
+        assertion
       }
     }
   }
@@ -171,6 +205,65 @@ object SparkRestClientTest {
       @GET
       def getExecutors(@PathParam("appId") appId: String, @PathParam("attemptId") attemptId: String): Seq[ExecutorSummary] =
         if (attemptId == "2") Seq.empty else throw new Exception()
+    }
+  }
+
+  object FetchClientModeDataFixtures {
+    val APP_ID = "application_1"
+    val APP_NAME = "app"
+
+    @Path("/api/v1")
+    class ApiResource {
+      @Path("applications/{appId}")
+      def getApplication(): ApplicationResource = new ApplicationResource()
+
+      @Path("applications/{appId}/jobs")
+      def getJobs(): JobsResource = new JobsResource()
+
+      @Path("applications/{appId}/stages")
+      def getStages(): StagesResource = new StagesResource()
+
+      @Path("applications/{appId}/executors")
+      def getExecutors(): ExecutorsResource = new ExecutorsResource()
+    }
+
+    @Produces(Array(MediaType.APPLICATION_JSON))
+    class ApplicationResource {
+      @GET
+      def getApplication(@PathParam("appId") appId: String): ApplicationInfo = {
+        val t2 = System.currentTimeMillis
+        val t1 = t2 - 1
+        val duration = 8000000L
+        new ApplicationInfo(
+          APP_ID,
+          APP_NAME,
+          Seq(
+            newFakeApplicationAttemptInfo(None, startTime = new Date(t2 - duration), endTime = new Date(t2)),
+            newFakeApplicationAttemptInfo(None, startTime = new Date(t1 - duration), endTime = new Date(t1))
+          )
+        )
+      }
+    }
+
+    @Produces(Array(MediaType.APPLICATION_JSON))
+    class JobsResource {
+      @GET
+      def getJobs(@PathParam("appId") appId: String): Seq[JobData] =
+        Seq.empty
+    }
+
+    @Produces(Array(MediaType.APPLICATION_JSON))
+    class StagesResource {
+      @GET
+      def getStages(@PathParam("appId") appId: String): Seq[StageData] =
+        Seq.empty
+    }
+
+    @Produces(Array(MediaType.APPLICATION_JSON))
+    class ExecutorsResource {
+      @GET
+      def getExecutors(@PathParam("appId") appId: String): Seq[ExecutorSummary] =
+        Seq.empty
     }
   }
 

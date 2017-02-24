@@ -46,10 +46,14 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
   private static final String IS_RM_HA_ENABLED = "yarn.resourcemanager.ha.enabled";
   private static final String RESOURCE_MANAGER_IDS = "yarn.resourcemanager.ha.rm-ids";
   private static final String RM_NODE_STATE_URL = "http://%s/ws/v1/cluster/info";
+  private static final String FETCH_ONLY_RECENT_RM_APPS = "drelephant.analysis.only.fetchRecentApps";
+  private static final String FETCH_START_TIME_WINDOW_MS = "drelephant.analysis.fetch.startTimeWindowMillis";
+
   private static Configuration configuration;
 
   // We provide one minute job fetch delay due to the job sending lag from AM/NM to JobHistoryServer HDFS
   private static final long FETCH_DELAY = 60000;
+  private static final long ONE_HOUR_IN_MS = 3600000;
 
   // Generate a token update interval with a random deviation so that it does not update the token exactly at the same
   // time with other token updaters (e.g. ElephantFetchers).
@@ -58,6 +62,7 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
 
   private String _resourceManagerAddress;
   private long _lastTime = 0;
+  private long _fetchStartTime = 0;
   private long _currentTime = 0;
   private long _tokenUpdatedTime = 0;
   private AuthenticatedURL.Token _token;
@@ -109,6 +114,11 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
   public void configure(Configuration configuration)
       throws IOException {
     this.configuration = configuration;
+    if (configuration.getBoolean(FETCH_ONLY_RECENT_RM_APPS, false)) {
+      _lastTime = System.currentTimeMillis() - FETCH_DELAY -
+          configuration.getLong(FETCH_START_TIME_WINDOW_MS, ONE_HOUR_IN_MS);
+      _fetchStartTime = _lastTime;
+    }
     updateResourceManagerAddresses();
   }
 
@@ -212,7 +222,7 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
 
       // When called first time after launch, hit the DB and avoid duplicated analytic jobs that have been analyzed
       // before.
-      if (_lastTime > 0 || (_lastTime == 0 && AppResult.find.byId(appId) == null)) {
+      if (_lastTime > _fetchStartTime || (_lastTime == _fetchStartTime && AppResult.find.byId(appId) == null)) {
         String user = app.get("user").getValueAsText();
         String name = app.get("name").getValueAsText();
         String queueName = app.get("queue").getValueAsText();

@@ -38,19 +38,11 @@
     <description>If this property is "false", search will only make exact matches</description>
   </property>
   <!--
-  Flag to enable to fetch only recently finished apps, by default it fetches apps finished in last one hour.
+  Initial window in MS to indicate how much older apps to fetch from RM.
   -->
   <!--
   <property>
-    <name>drelephant.analysis.only.fetchRecentApps</name>
-    <value>true</value>
-  </property> -->
-  <!--
-  Property to change to how much older apps to fetch from RM. The default value is 3600000 (one hour)
-  -->
-  <!--
-  <property>
-    <name>drelephant.analysis.fetch.startTimeWindowMillis</name>
+    <name>drelephant.analysis.fetch.initial.windowMillis</name>
     <value>3600000</value>
   </property> -->
 </configuration>

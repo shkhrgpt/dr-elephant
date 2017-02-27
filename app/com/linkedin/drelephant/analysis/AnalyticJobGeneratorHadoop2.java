@@ -46,14 +46,12 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
   private static final String IS_RM_HA_ENABLED = "yarn.resourcemanager.ha.enabled";
   private static final String RESOURCE_MANAGER_IDS = "yarn.resourcemanager.ha.rm-ids";
   private static final String RM_NODE_STATE_URL = "http://%s/ws/v1/cluster/info";
-  private static final String FETCH_ONLY_RECENT_RM_APPS = "drelephant.analysis.only.fetchRecentApps";
-  private static final String FETCH_START_TIME_WINDOW_MS = "drelephant.analysis.fetch.startTimeWindowMillis";
+  private static final String FETCH_INITIAL_WINDOW_MS = "drelephant.analysis.fetch.initial.windowMillis";
 
   private static Configuration configuration;
 
   // We provide one minute job fetch delay due to the job sending lag from AM/NM to JobHistoryServer HDFS
   private static final long FETCH_DELAY = 60000;
-  private static final long ONE_HOUR_IN_MS = 3600000;
 
   // Generate a token update interval with a random deviation so that it does not update the token exactly at the same
   // time with other token updaters (e.g. ElephantFetchers).
@@ -114,9 +112,10 @@ public class AnalyticJobGeneratorHadoop2 implements AnalyticJobGenerator {
   public void configure(Configuration configuration)
       throws IOException {
     this.configuration = configuration;
-    if (configuration.getBoolean(FETCH_ONLY_RECENT_RM_APPS, false)) {
-      _lastTime = System.currentTimeMillis() - FETCH_DELAY -
-          configuration.getLong(FETCH_START_TIME_WINDOW_MS, ONE_HOUR_IN_MS);
+    String initialFetchWindowString = configuration.get(FETCH_INITIAL_WINDOW_MS);
+    if (initialFetchWindowString != null) {
+      long initialFetchWindow = Long.getLong(initialFetchWindowString);
+      _lastTime = System.currentTimeMillis() - FETCH_DELAY - initialFetchWindow;
       _fetchStartTime = _lastTime;
     }
     updateResourceManagerAddresses();

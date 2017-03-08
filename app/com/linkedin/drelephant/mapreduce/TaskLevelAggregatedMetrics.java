@@ -106,6 +106,9 @@ public class TaskLevelAggregatedMetrics {
     }
 
     for (MapReduceTaskData taskData: taskDatas) {
+      if (!taskData.isTimeAndCounterDataPresent()) {
+        continue;
+      }
       long taskMemory = taskData.getCounters().get(MapReduceCounterData.CounterName.PHYSICAL_MEMORY_BYTES)/ FileUtils.ONE_MB; // MB
       long taskVM = taskData.getCounters().get(MapReduceCounterData.CounterName.VIRTUAL_MEMORY_BYTES)/ FileUtils.ONE_MB; // MB
       long taskDuration = taskData.getFinishTimeMs() - taskData.getStartTimeMs(); // Milliseconds

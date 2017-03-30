@@ -142,8 +142,8 @@ object ConfigurationHeuristic {
 
     /**
      * The following logic computes severity based on shuffle service and dynamic allocation flags.
-     * If dynamic allocation is disabled, then severity will be MODERATE of shuffle service is disabled or not specified.
-     * If dynamic allocation is enable, then severity will be SEVERE of shuffle service is disabled or not specified.
+     * If dynamic allocation is disabled, then severity will be MODERATE if shuffle service is disabled or not specified.
+     * If dynamic allocation is enabled, then severity will be SEVERE if shuffle service is disabled or not specified.
      */
 
     lazy val isDynamicAllocationEnabled: Option[Boolean] = Some(getProperty(SPARK_DYNAMIC_ALLOCATION_ENABLED).exists(_.toBoolean == true))

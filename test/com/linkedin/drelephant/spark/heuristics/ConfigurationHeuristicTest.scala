@@ -165,8 +165,8 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
       it("has no serializer, dynamic allocation flag, and shuffle flag when they are absent") {
         val evaluator = newEvaluatorWithConfigurationProperties(Map.empty)
         evaluator.serializer should be(None)
-        evaluator.isDynamicAllocationEnabled should be(None)
-        evaluator.isShuffleServiceEnabled should be(None)
+        evaluator.isDynamicAllocationEnabled should be(Some(false))
+        evaluator.isShuffleServiceEnabled should be(Some(false))
         evaluator.serializerSeverity should be(Severity.MODERATE)
         evaluator.shuffleAndDynamicAllocationSeverity should be(Severity.MODERATE)
         evaluator.severity should be(Severity.MODERATE)
@@ -175,8 +175,8 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
       it("has no dynamic allocation flag and shuffle flag, and serializer setting matches our recommendation") {
         val evaluator = newEvaluatorWithConfigurationProperties(Map("spark.serializer" -> "org.apache.spark.serializer.KryoSerializer"))
         evaluator.serializer should be(Some("org.apache.spark.serializer.KryoSerializer"))
-        evaluator.isDynamicAllocationEnabled should be(None)
-        evaluator.isShuffleServiceEnabled should be(None)
+        evaluator.isDynamicAllocationEnabled should be(Some(false))
+        evaluator.isShuffleServiceEnabled should be(Some(false))
         evaluator.serializerSeverity should be(Severity.NONE)
         evaluator.shuffleAndDynamicAllocationSeverity should be(Severity.MODERATE)
         evaluator.severity should be(Severity.MODERATE)
@@ -185,8 +185,8 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
       it("has no dynamic allocation flag and shuffle flag, and serializer setting doesn't match our recommendation and is non-null") {
         val evaluator = newEvaluatorWithConfigurationProperties(Map("spark.serializer" -> "org.apache.spark.serializer.FooSerializer"))
         evaluator.serializer should be(Some("org.apache.spark.serializer.FooSerializer"))
-        evaluator.isDynamicAllocationEnabled should be(None)
-        evaluator.isShuffleServiceEnabled should be(None)
+        evaluator.isDynamicAllocationEnabled should be(Some(false))
+        evaluator.isShuffleServiceEnabled should be(Some(false))
         evaluator.serializerSeverity should be(Severity.MODERATE)
         evaluator.shuffleAndDynamicAllocationSeverity should be(Severity.MODERATE)
         evaluator.severity should be(Severity.MODERATE)

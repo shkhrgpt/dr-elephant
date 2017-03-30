@@ -140,18 +140,19 @@ object ConfigurationHeuristic {
       case Some(_) => DEFAULT_SERIALIZER_IF_NON_NULL_SEVERITY_IF_RECOMMENDATION_UNMET
     }
 
-    lazy val isDynamicAllocationEnabled: Option[Boolean] = getProperty(SPARK_DYNAMIC_ALLOCATION_ENABLED).map(_.toBoolean)
-    lazy val isShuffleServiceEnabled: Option[Boolean] = getProperty(SPARK_SHUFFLE_SERVICE_ENABLED).map(_.toBoolean)
+    /**
+     * The following logic computes severity based on shuffle service and dynamic allocation flags.
+     * If dynamic allocation is disabled, then severity will be MODERATE of shuffle service is disabled or not specified.
+     * If dynamic allocation is enable, then severity will be SEVERE of shuffle service is disabled or not specified.
+     */
+
+    lazy val isDynamicAllocationEnabled: Option[Boolean] = Some(getProperty(SPARK_DYNAMIC_ALLOCATION_ENABLED).exists(_.toBoolean == true))
+    lazy val isShuffleServiceEnabled: Option[Boolean] = Some(getProperty(SPARK_SHUFFLE_SERVICE_ENABLED).exists(_.toBoolean == true))
 
     lazy val shuffleAndDynamicAllocationSeverity = (isDynamicAllocationEnabled, isShuffleServiceEnabled) match {
       case (_, Some(true)) => Severity.NONE
-      case (Some(true), Some(false)) => Severity.SEVERE
-      case (Some(true), None) => Severity.SEVERE
       case (Some(false), Some(false)) => Severity.MODERATE
-      case (Some(false), None) => Severity.MODERATE
-      case (None, Some(true)) => Severity.NONE
-      case (None, Some(false)) => Severity.MODERATE
-      case (None, None) => Severity.MODERATE
+      case (Some(true), Some(false)) => Severity.SEVERE
     }
 
     lazy val severity: Severity = Severity.max(serializerSeverity, shuffleAndDynamicAllocationSeverity)

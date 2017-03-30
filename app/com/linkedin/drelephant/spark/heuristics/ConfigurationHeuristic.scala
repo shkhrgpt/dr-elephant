@@ -134,6 +134,10 @@ object ConfigurationHeuristic {
 
     lazy val serializer: Option[String] = getProperty(SPARK_SERIALIZER_KEY)
 
+    /**
+     * If the serializer is either not configured or not equal to KryoSerializer, then the severity will be moderate.
+     */
+
     lazy val serializerSeverity: Severity = serializer match {
       case None => Severity.MODERATE
       case Some(`serializerIfNonNullRecommendation`) => Severity.NONE
@@ -142,8 +146,8 @@ object ConfigurationHeuristic {
 
     /**
      * The following logic computes severity based on shuffle service and dynamic allocation flags.
-     * If dynamic allocation is disabled, then severity will be MODERATE if shuffle service is disabled or not specified.
-     * If dynamic allocation is enabled, then severity will be SEVERE if shuffle service is disabled or not specified.
+     * If dynamic allocation is disabled, then the severity will be MODERATE if shuffle service is disabled or not specified.
+     * If dynamic allocation is enabled, then the severity will be SEVERE if shuffle service is disabled or not specified.
      */
 
     lazy val isDynamicAllocationEnabled: Option[Boolean] = Some(getProperty(SPARK_DYNAMIC_ALLOCATION_ENABLED).exists(_.toBoolean == true))

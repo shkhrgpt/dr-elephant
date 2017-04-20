@@ -16,6 +16,8 @@
 
 package com.linkedin.drelephant.spark.heuristics
 
+import java.util.ArrayList
+
 import com.linkedin.drelephant.math.Statistics
 
 import scala.collection.JavaConverters
@@ -72,25 +74,27 @@ class ConfigurationHeuristic(private val heuristicConfigurationData: HeuristicCo
         evaluator.applicationDuration.toString + " Seconds"
       ),
       new HeuristicResultDetails(
-        SPARK_SERIALIZER_KEY,
-        formatProperty(evaluator.serializer)
-      ),
-      new HeuristicResultDetails(
         SPARK_DYNAMIC_ALLOCATION_ENABLED,
         formatProperty(evaluator.isDynamicAllocationEnabled.map(_.toString))
-      ),
-      new HeuristicResultDetails(
-        SPARK_SHUFFLE_SERVICE_ENABLED,
-        formatProperty(evaluator.isShuffleServiceEnabled.map(_.toString))
       )
     )
+    // Constructing a mutable ArrayList for resultDetails, otherwise addResultDetail method HeuristicResult cannot be used.
+    val mutableResultDetailsArrayList = new ArrayList(resultDetails.asJava)
     val result = new HeuristicResult(
       heuristicConfigurationData.getClassName,
       heuristicConfigurationData.getHeuristicName,
       evaluator.severity,
       0,
-      resultDetails.asJava
+      mutableResultDetailsArrayList
     )
+    if (evaluator.serializerSeverity != Severity.NONE) {
+      result.addResultDetail(SPARK_SERIALIZER_KEY, formatProperty(evaluator.serializer),
+        "KyroSerializer is Not Enabled.")
+    }
+    if (evaluator.shuffleAndDynamicAllocationSeverity != Severity.NONE) {
+      result.addResultDetail(SPARK_SHUFFLE_SERVICE_ENABLED, formatProperty(evaluator.isShuffleServiceEnabled.map(_.toString)),
+      "Spark shuffle service is not enabled.")
+    }
     result
   }
 }

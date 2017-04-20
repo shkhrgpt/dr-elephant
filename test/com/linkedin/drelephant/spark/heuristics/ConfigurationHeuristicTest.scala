@@ -41,7 +41,7 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
 
     val configurationHeuristic = new ConfigurationHeuristic(heuristicConfigurationData)
 
-    describe(".apply") {
+    describe("apply with NO Severity") {
       val configurationProperties = Map(
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.storage.memoryFraction" -> "0.3",
@@ -56,6 +56,10 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
       val data = newFakeSparkApplicationData(configurationProperties)
       val heuristicResult = configurationHeuristic.apply(data)
       val heuristicResultDetails = heuristicResult.getHeuristicResultDetails
+
+      it("returns the size of result details") {
+        heuristicResultDetails.size() should be(6)
+      }
 
       it("returns the severity") {
         heuristicResult.getSeverity should be(Severity.NONE)
@@ -91,22 +95,50 @@ class ConfigurationHeuristicTest extends FunSpec with Matchers {
         details.getValue should include("10")
       }
 
-      it("returns the serializer") {
+      it("returns the dynamic allocation flag") {
         val details = heuristicResultDetails.get(5)
-        details.getName should include("spark.serializer")
-        details.getValue should be("org.apache.spark.serializer.KryoSerializer")
+        details.getName should include("spark.dynamicAllocation.enabled")
+        details.getValue should be("true")
+      }
+    }
+
+    describe("apply with Severity") {
+      val configurationProperties = Map(
+        "spark.serializer" -> "dummySerializer",
+        "spark.shuffle.service.enabled" -> "false",
+        "spark.dynamicAllocation.enabled" -> "true"
+      )
+
+      val data = newFakeSparkApplicationData(configurationProperties)
+      val heuristicResult = configurationHeuristic.apply(data)
+      val heuristicResultDetails = heuristicResult.getHeuristicResultDetails
+
+      it("returns the size of result details") {
+        heuristicResultDetails.size() should be(8)
+      }
+
+      it("returns the severity") {
+        heuristicResult.getSeverity should be(Severity.SEVERE)
       }
 
       it("returns the dynamic allocation flag") {
-        val details = heuristicResultDetails.get(6)
+        val details = heuristicResultDetails.get(5)
         details.getName should include("spark.dynamicAllocation.enabled")
         details.getValue should be("true")
+      }
+
+      it("returns the serializer") {
+        val details = heuristicResultDetails.get(6)
+        details.getName should include("spark.serializer")
+        details.getValue should be("dummySerializer")
+        details.getDetails should be("KyroSerializer is Not Enabled.")
       }
 
       it("returns the shuffle service flag") {
         val details = heuristicResultDetails.get(7)
         details.getName should include("spark.shuffle.service.enabled")
-        details.getValue should be("true")
+        details.getValue should be("false")
+        details.getDetails should be("Spark shuffle service is not enabled.")
       }
     }
 

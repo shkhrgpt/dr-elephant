@@ -59,7 +59,6 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
           case config => config
         }
       }
-
       fakeJerseyServer.setUp()
 
       val historyServerUri = fakeJerseyServer.target.getUri

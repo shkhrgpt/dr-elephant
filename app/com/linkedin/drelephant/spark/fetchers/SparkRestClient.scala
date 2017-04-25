@@ -16,11 +16,14 @@
 
 package com.linkedin.drelephant.spark.fetchers
 
-import java.io.BufferedInputStream
+import java.io.{InputStream, BufferedInputStream}
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.zip.ZipInputStream
 import java.util.{Calendar, SimpleTimeZone}
+
+import com.linkedin.drelephant.spark.legacydata.LegacyDataConverters
+import org.apache.spark.deploy.history.SparkDataCollection
 
 import scala.async.Async
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +31,7 @@ import scala.util.control.NonFatal
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.linkedin.drelephant.spark.data.{SparkLogDerivedData, SparkRestDerivedData}
+import com.linkedin.drelephant.spark.data.{SparkApplicationData, SparkLogDerivedData, SparkRestDerivedData}
 import com.linkedin.drelephant.spark.fetchers.statusapiv1.{ApplicationInfo, ExecutorSummary, JobData, StageData}
 import com.linkedin.drelephant.util.SparkUtils
 import javax.ws.rs.client.{Client, ClientBuilder, WebTarget}
@@ -72,15 +75,7 @@ class SparkRestClient(sparkConf: SparkConf) {
   def fetchData(appId: String, fetchLogs: Boolean = false)(
     implicit ec: ExecutionContext
   ): Future[SparkRestDerivedData] = {
-    val appTarget = apiTarget.path(s"applications/${appId}")
-    logger.info(s"calling REST API at ${appTarget.getUri}")
-
-    val applicationInfo = getApplicationInfo(appTarget)
-
-    // These are pure and cannot fail, therefore it is safe to have
-    // them outside of the async block.
-    val lastAttemptId = applicationInfo.attempts.maxBy {_.startTime}.attemptId
-    val attemptTarget = lastAttemptId.map(appTarget.path).getOrElse(appTarget)
+    val (applicationInfo, attemptTarget) = getApplicationMetaData(appId)
 
     // Limit the scope of async.
     async {
@@ -101,6 +96,33 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
+  def fetchSparkApplicationdata(appId: String): SparkApplicationData = {
+    val (_, attemptTarget) = getApplicationMetaData(appId)
+    val target = attemptTarget.path("logs")
+    logger.info(s"calling REST API at ${target.getUri} to get eventlogs")
+    resource.managed { getApplicationLogs(target) }.acquireAndGet { zis =>
+      val (logInputStream, logFileName) = getLogInputStream(zis, target)
+      val dataCollection = new SparkDataCollection()
+      logger.info(s"Trying to read event logs ${logFileName.get} to SparkApplicationData")
+      dataCollection.load(logInputStream.get, logFileName.get)
+      logger.info(s"Trying to convert event logs ${logFileName.get} to SparkApplicationData")
+      LegacyDataConverters.convert(dataCollection)
+    }
+  }
+
+  private def getApplicationMetaData(appId: String): (ApplicationInfo, WebTarget) = {
+    val appTarget = apiTarget.path(s"applications/${appId}")
+    logger.info(s"calling REST API at ${appTarget.getUri}")
+
+    val applicationInfo = getApplicationInfo(appTarget)
+
+    // These are pure and cannot fail, therefore it is safe to have
+    // them outside of the async block.
+    val lastAttemptId = applicationInfo.attempts.maxBy {_.startTime}.attemptId
+    val attemptTarget = lastAttemptId.map(appTarget.path).getOrElse(appTarget)
+    (applicationInfo, attemptTarget)
+  }
+
   private def getApplicationInfo(appTarget: WebTarget): ApplicationInfo = {
     try {
       get(appTarget, SparkRestObjectMapper.readValue[ApplicationInfo])
@@ -112,23 +134,26 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
-  private def getLogData(attemptTarget: WebTarget): Option[SparkLogDerivedData] = {
-    val target = attemptTarget.path("logs")
-    logger.info(s"calling REST API at ${target.getUri} to get eventlogs")
-
+  private def getLogInputStream(zis: ZipInputStream, attemptTarget: WebTarget): (Option[InputStream], Option[String]) = {
     // The logs are stored in a ZIP archive with a single entry.
     // It should be named as "$logPrefix.$archiveExtension", but
     // we trust Spark to get it right.
+    val entry = zis.getNextEntry
+    if (entry == null) {
+      logger.warn(s"failed to resolve log for ${attemptTarget.getUri}")
+      (None, None)
+    } else {
+      val codec = SparkUtils.compressionCodecForLogName(sparkConf, entry.getName)
+      (Some(codec.map { _.compressedInputStream(zis)}.getOrElse(zis)), Some(entry.getName))
+    }
+  }
+
+  private def getLogData(attemptTarget: WebTarget): Option[SparkLogDerivedData] = {
+    val target = attemptTarget.path("logs")
+    logger.info(s"calling REST API at ${target.getUri} to get eventlogs")
     resource.managed { getApplicationLogs(target) }.acquireAndGet { zis =>
-      val entry = zis.getNextEntry
-      if (entry == null) {
-        logger.warn(s"failed to resolve log for ${target.getUri}")
-        None
-      } else {
-        val codec = SparkUtils.compressionCodecForLogName(sparkConf, entry.getName)
-        Some(SparkLogClient.findDerivedData(
-          codec.map { _.compressedInputStream(zis) }.getOrElse(zis)))
-      }
+      val (inputStream, _) = getLogInputStream(zis, target)
+      inputStream.map(SparkLogClient.findDerivedData(_))
     }
   }
 

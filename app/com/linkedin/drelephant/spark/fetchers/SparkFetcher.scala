@@ -100,9 +100,9 @@ class SparkFetcher(fetcherConfigurationData: FetcherConfigurationData)
   }
 
   private def doFetchSparkApplicationData(analyticJob: AnalyticJob): Future[SparkApplicationData] = {
-    if (shouldProcessLogsLocally) {
+    if (eventLogSource == EventLogSource.Rest && shouldProcessLogsLocally) {
       async {
-        sparkRestClient.fetchSparkApplicationdata(analyticJob.getAppId)
+        sparkRestClient.fetchSparkApplicationData(analyticJob.getAppId)
       }
     } else {
       doFetchDataUsingRestAndLogClients(analyticJob)

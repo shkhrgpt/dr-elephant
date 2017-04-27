@@ -96,16 +96,19 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
-  def fetchSparkApplicationdata(appId: String): SparkApplicationData = {
+  def fetchSparkApplicationData(appId: String): SparkApplicationData = {
     val (_, attemptTarget) = getApplicationMetaData(appId)
-    val target = attemptTarget.path("logs")
-    logger.info(s"calling REST API at ${target.getUri} to get eventlogs")
-    resource.managed { getApplicationLogs(target) }.acquireAndGet { zis =>
-      val (logInputStream, logFileName) = getLogInputStream(zis, target)
+    val logTarget = attemptTarget.path("logs")
+    logger.info(s"creating SparkApplication by calling REST API at ${logTarget.getUri} to get eventlogs")
+    resource.managed { getApplicationLogs(logTarget) }.acquireAndGet { zipInputStream =>
+      val streamTuple = getLogInputStream(zipInputStream, logTarget)
+      val logInputStream = streamTuple._1.getOrElse(
+        throw new RuntimeException(s"Failed to read log for application ${appId}"))
+      val logFileName = streamTuple._2
       val dataCollection = new SparkDataCollection()
-      logger.info(s"Trying to read event logs ${logFileName.get} to SparkApplicationData")
-      dataCollection.load(logInputStream.get, logFileName.get)
-      logger.info(s"Trying to convert event logs ${logFileName.get} to SparkApplicationData")
+      logger.info(s"Trying to read event logs ${logFileName} to SparkApplicationData")
+      dataCollection.load(logInputStream, logFileName)
+      logger.info(s"Trying to convert event logs ${logFileName} to SparkApplicationData")
       LegacyDataConverters.convert(dataCollection)
     }
   }
@@ -134,20 +137,6 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
-  private def getLogInputStream(zis: ZipInputStream, attemptTarget: WebTarget): (Option[InputStream], Option[String]) = {
-    // The logs are stored in a ZIP archive with a single entry.
-    // It should be named as "$logPrefix.$archiveExtension", but
-    // we trust Spark to get it right.
-    val entry = zis.getNextEntry
-    if (entry == null) {
-      logger.warn(s"failed to resolve log for ${attemptTarget.getUri}")
-      (None, None)
-    } else {
-      val codec = SparkUtils.compressionCodecForLogName(sparkConf, entry.getName)
-      (Some(codec.map { _.compressedInputStream(zis)}.getOrElse(zis)), Some(entry.getName))
-    }
-  }
-
   private def getLogData(attemptTarget: WebTarget): Option[SparkLogDerivedData] = {
     val target = attemptTarget.path("logs")
     logger.info(s"calling REST API at ${target.getUri} to get eventlogs")
@@ -160,13 +149,32 @@ class SparkRestClient(sparkConf: SparkConf) {
   private def getApplicationLogs(logTarget: WebTarget): ZipInputStream = {
     try {
       val is = logTarget.request(MediaType.APPLICATION_OCTET_STREAM)
-          .get(classOf[java.io.InputStream])
+        .get(classOf[java.io.InputStream])
       new ZipInputStream(new BufferedInputStream(is))
     } catch {
       case NonFatal(e) => {
         logger.error(s"error reading logs ${logTarget.getUri}", e)
         throw e
       }
+    }
+  }
+
+  private def getLogInputStream(zis: ZipInputStream, attemptTarget: WebTarget): (Option[InputStream], String) = {
+    // The logs are stored in a ZIP archive with a single entry.
+    // It should be named as "$logPrefix.$archiveExtension", but
+    // we trust Spark to get it right.
+    val entry = zis.getNextEntry
+    if (entry == null) {
+      logger.warn(s"failed to resolve log for ${attemptTarget.getUri}")
+      (None, "")
+    } else {
+      val entryName = entry.getName
+      if (entryName.endsWith(IN_PROGRESS)) {
+        // Making sure that the application has finished.
+        throw new RuntimeException(s"Application for the log ${entryName} has not finished yet.")
+      }
+      val codec = SparkUtils.compressionCodecForLogName(sparkConf, entryName)
+      (Some(codec.map { _.compressedInputStream(zis)}.getOrElse(zis)), entryName)
     }
   }
 
@@ -210,6 +218,7 @@ class SparkRestClient(sparkConf: SparkConf) {
 object SparkRestClient {
   val HISTORY_SERVER_ADDRESS_KEY = "spark.yarn.historyServer.address"
   val API_V1_MOUNT_PATH = "api/v1"
+  val IN_PROGRESS = ".inprogress"
 
   val SparkRestObjectMapper = {
     val dateFormat = {

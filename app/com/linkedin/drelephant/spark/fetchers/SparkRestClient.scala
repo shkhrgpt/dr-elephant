@@ -106,9 +106,7 @@ class SparkRestClient(sparkConf: SparkConf) {
         throw new RuntimeException(s"Failed to read log for application ${appId}"))
       val logFileName = streamTuple._2
       val dataCollection = new SparkDataCollection()
-      logger.info(s"Trying to read event logs ${logFileName} to SparkApplicationData")
       dataCollection.load(logInputStream, logFileName)
-      logger.info(s"Trying to convert event logs ${logFileName} to SparkApplicationData")
       LegacyDataConverters.convert(dataCollection)
     }
   }

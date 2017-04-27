@@ -101,13 +101,14 @@ class SparkRestClient(sparkConf: SparkConf) {
     val logTarget = attemptTarget.path("logs")
     logger.info(s"creating SparkApplication by calling REST API at ${logTarget.getUri} to get eventlogs")
     resource.managed { getApplicationLogs(logTarget) }.acquireAndGet { zipInputStream =>
-      val streamTuple = getLogInputStream(zipInputStream, logTarget)
-      val logInputStream = streamTuple._1.getOrElse(
-        throw new RuntimeException(s"Failed to read log for application ${appId}"))
-      val logFileName = streamTuple._2
-      val dataCollection = new SparkDataCollection()
-      dataCollection.load(logInputStream, logFileName)
-      LegacyDataConverters.convert(dataCollection)
+      getLogInputStream(zipInputStream, logTarget) match {
+        case (None, _) => throw new RuntimeException(s"Failed to read log for application ${appId}")
+        case (Some(inputStream), fileName) => {
+          val dataCollection = new SparkDataCollection()
+          dataCollection.load(inputStream, fileName)
+          LegacyDataConverters.convert(dataCollection)
+        }
+      }
     }
   }
 

@@ -145,7 +145,7 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
-  private def getApplicationLogs(logTarget: WebTarget): ZipInputStream = {
+  private[fetchers] def getApplicationLogs(logTarget: WebTarget): ZipInputStream = {
     try {
       val is = logTarget.request(MediaType.APPLICATION_OCTET_STREAM)
         .get(classOf[java.io.InputStream])

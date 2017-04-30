@@ -96,7 +96,7 @@ class SparkRestClient(sparkConf: SparkConf) {
     }
   }
 
-  def fetchSparkApplicationData(appId: String): SparkApplicationData = {
+  def fetchEventLogAndParse(appId: String): SparkApplicationData = {
     val (_, attemptTarget) = getApplicationMetaData(appId)
     val logTarget = attemptTarget.path("logs")
     logger.info(s"creating SparkApplication by calling REST API at ${logTarget.getUri} to get eventlogs")

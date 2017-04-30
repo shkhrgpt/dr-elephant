@@ -68,7 +68,7 @@ class SparkFetcher(fetcherConfigurationData: FetcherConfigurationData)
   }
 
   private[fetchers] lazy val shouldProcessLogsLocally = (eventLogSource == EventLogSource.Rest) &&
-    Option(fetcherConfigurationData.getParamMap.get("should_process_logs_locally")).exists(_.toBoolean)
+    Option(fetcherConfigurationData.getParamMap.get("should_process_logs_locally")).exists(_.toLowerCase == "true")
 
   private[fetchers] lazy val sparkRestClient: SparkRestClient = new SparkRestClient(sparkConf)
 
@@ -103,7 +103,7 @@ class SparkFetcher(fetcherConfigurationData: FetcherConfigurationData)
   private def doFetchSparkApplicationData(analyticJob: AnalyticJob): Future[SparkApplicationData] = {
     if (shouldProcessLogsLocally) {
       async {
-        sparkRestClient.fetchSparkApplicationData(analyticJob.getAppId)
+        sparkRestClient.fetchEventLogAndParse(analyticJob.getAppId)
       }
     } else {
       doFetchDataUsingRestAndLogClients(analyticJob)

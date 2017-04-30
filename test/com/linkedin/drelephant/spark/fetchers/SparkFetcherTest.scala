@@ -103,7 +103,7 @@ class SparkFetcherTest extends FunSpec with Matchers with MockitoSugar {
       val mockSparkRestClient = Mockito.mock(classOf[SparkRestClient])
       val mockSparkApplicationData = Mockito.mock(classOf[SparkApplicationData])
       Mockito.when(mockSparkApplicationData.getAppId()).thenReturn(appId)
-      Mockito.when(mockSparkRestClient.fetchSparkApplicationData(appId)).thenReturn(mockSparkApplicationData)
+      Mockito.when(mockSparkRestClient.fetchEventLogAndParse(appId)).thenReturn(mockSparkApplicationData)
       val sparkFetcher = new SparkFetcher(fetcherConfigurationData) {
         override lazy val sparkConf: SparkConf = new SparkConf()
           .set(SparkFetcher.SPARK_EVENT_LOG_ENABLED_KEY, "true")
@@ -117,7 +117,7 @@ class SparkFetcherTest extends FunSpec with Matchers with MockitoSugar {
       val fetcherConfigurationData = newFakeFetcherConfigurationData(
         Map("use_rest_for_eventlogs" -> "true", "should_process_logs_locally" -> "true"))
       val mockSparkRestClient = Mockito.mock(classOf[SparkRestClient])
-      Mockito.when(mockSparkRestClient.fetchSparkApplicationData(appId)).thenThrow(new RuntimeException())
+      Mockito.when(mockSparkRestClient.fetchEventLogAndParse(appId)).thenThrow(new RuntimeException())
       val sparkFetcher = new SparkFetcher(fetcherConfigurationData) {
         override lazy val sparkConf: SparkConf = new SparkConf()
           .set(SparkFetcher.SPARK_EVENT_LOG_ENABLED_KEY, "true")

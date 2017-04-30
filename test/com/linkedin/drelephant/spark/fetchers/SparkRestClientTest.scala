@@ -103,7 +103,7 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
 
       val sparkConf = new SparkConf().set("spark.yarn.historyServer.address", s"${historyServerUri.getHost}:${historyServerUri.getPort}")
       val sparkRestClient = new SparkRestClient(sparkConf)
-      val sparkApplicationData = sparkRestClient.fetchSparkApplicationData(FetchClusterModeDataFixtures.APP_ID)
+      val sparkApplicationData = sparkRestClient.fetchEventLogAndParse(FetchClusterModeDataFixtures.APP_ID)
 
       sparkApplicationData.applicationInfo.id should be("application_1457600942802_0093")
       sparkApplicationData.applicationInfo.name should be("PythonPi")
@@ -157,7 +157,7 @@ class SparkRestClientTest extends AsyncFunSpec with Matchers {
         }
       }
 
-      val thrown = the[RuntimeException] thrownBy(sparkRestClient.fetchSparkApplicationData(FetchClusterModeDataFixtures.APP_ID))
+      val thrown = the[RuntimeException] thrownBy(sparkRestClient.fetchEventLogAndParse(FetchClusterModeDataFixtures.APP_ID))
       thrown.getMessage should be (s"Application for the log application_1.lzf.inprogress has not finished yet.")
     }
 

@@ -63,21 +63,10 @@ import views.html.page.helpPage;
 import views.html.page.homePage;
 import views.html.page.jobHistoryPage;
 import views.html.page.searchPage;
-import views.html.results.compareResults;
-import views.html.results.flowDetails;
-import views.html.results.oldFlowHistoryResults;
-import views.html.results.jobDetails;
-import views.html.results.oldJobHistoryResults;
-import views.html.results.oldFlowMetricsHistoryResults;
-import views.html.results.oldJobMetricsHistoryResults;
-import views.html.results.searchResults;
+import views.html.results.*;
 
 import views.html.page.oldFlowHistoryPage;
 import views.html.page.oldJobHistoryPage;
-import views.html.results.jobHistoryResults;
-import views.html.results.flowHistoryResults;
-import views.html.results.flowMetricsHistoryResults;
-import views.html.results.jobMetricsHistoryResults;
 import views.html.page.oldHelpPage;
 
 import com.google.gson.*;
@@ -241,6 +230,9 @@ public class Application extends Controller {
     String partialFlowExecId = form.get(FLOW_EXEC_ID);
     partialFlowExecId = (partialFlowExecId != null) ? partialFlowExecId.trim() : null;
 
+    String jobDefId = form.get(JOB_DEF_ID);
+    jobDefId = jobDefId != null ? jobDefId.trim() : "";
+
     // Search and display job details when job id or flow execution url is provided.
     if (!appId.isEmpty()) {
       AppResult result = AppResult.find.select("*")
@@ -260,6 +252,19 @@ public class Application extends Controller {
           .findList();
       Map<IdUrlPair, List<AppResult>> map = ControllerUtil.groupJobs(results, ControllerUtil.GroupBy.JOB_EXECUTION_ID);
       return ok(searchPage.render(null, flowDetails.render(flowExecPair, map)));
+    } else if (!jobDefId.isEmpty()) {
+      List<AppResult> results = AppResult.find
+          .select(AppResult.getSearchFields() + "," + AppResult.TABLE.JOB_DEF_ID)
+          .fetch(AppResult.TABLE.APP_HEURISTIC_RESULTS, AppHeuristicResult.getSearchFields())
+          .where()
+          .eq(AppResult.TABLE.JOB_DEF_ID, jobDefId)
+          .findList();
+      Map<IdUrlPair, List<AppResult>> map = ControllerUtil.groupJobs(results, ControllerUtil.GroupBy.FLOW_EXECUTION_ID);
+
+      String flowDefId = (results.isEmpty()) ? "" :  results.get(0).flowDefId;  // all results should have the same flow id
+      IdUrlPair flowDefIdPair = new IdUrlPair(flowDefId, AppResult.TABLE.FLOW_DEF_URL);
+
+      return ok(searchPage.render(null, flowDefinitionIdDetails.render(flowDefIdPair, map)));
     }
 
     // Prepare pagination of results
@@ -457,7 +462,7 @@ public class Application extends Controller {
    * @return A map of Job Urls to the list of jobs corresponding to the 2 flow execution urls
    */
   private static Map<IdUrlPair, Map<IdUrlPair, List<AppResult>>> compareFlows(List<AppResult> results1, List<AppResult> results2) {
-    
+
     Map<IdUrlPair, Map<IdUrlPair, List<AppResult>>> jobDefMap = new HashMap<IdUrlPair, Map<IdUrlPair, List<AppResult>>>();
 
     if (results1 != null && !results1.isEmpty() && results2 != null && !results2.isEmpty()) {
@@ -1137,15 +1142,19 @@ public class Application extends Controller {
 
       // Execution record
       JsonObject dataset = new JsonObject();
-      dataset.addProperty("flowtime", mrJobsList.get(mrJobsList.size() - 1).finishTime);
+      dataset.addProperty("flowtime", Utils.getFlowTime(mrJobsList.get(mrJobsList.size() - 1)));
       dataset.addProperty("score", flowPerfScore);
       dataset.add("jobscores", jobScores);
 
       datasets.add(dataset);
     }
 
-    return ok(new Gson().toJson(datasets));
+    JsonArray sortedDatasets = Utils.sortJsonArray(datasets);
+
+    return ok(new Gson().toJson(sortedDatasets));
   }
+
+
 
   /**
    * The data for plotting the job history graph. While plotting the job history
@@ -1228,14 +1237,16 @@ public class Application extends Controller {
 
       // Execution record
       JsonObject dataset = new JsonObject();
-      dataset.addProperty("flowtime", mrJobsList.get(mrJobsList.size() - 1).finishTime);
+      dataset.addProperty("flowtime", Utils.getFlowTime(mrJobsList.get(mrJobsList.size() - 1)));
       dataset.addProperty("score", jobPerfScore);
       dataset.add("stagescores", stageScores);
 
       datasets.add(dataset);
     }
 
-    return ok(new Gson().toJson(datasets));
+    JsonArray sortedDatasets = Utils.sortJsonArray(datasets);
+
+    return ok(new Gson().toJson(sortedDatasets));
   }
 
   /**
@@ -1330,7 +1341,7 @@ public class Application extends Controller {
 
       // Execution record
       JsonObject dataset = new JsonObject();
-      dataset.addProperty("flowtime", mrJobsList.get(mrJobsList.size() - 1).finishTime);
+      dataset.addProperty("flowtime", Utils.getFlowTime(mrJobsList.get(mrJobsList.size() - 1)));
       dataset.addProperty("runtime", Utils.getTotalRuntime(mrJobsList));
       dataset.addProperty("waittime", Utils.getTotalWaittime(mrJobsList));
       dataset.addProperty("resourceused", totalMemoryUsed);
@@ -1340,7 +1351,9 @@ public class Application extends Controller {
       datasets.add(dataset);
     }
 
-    return ok(new Gson().toJson(datasets));
+    JsonArray sortedDatasets = Utils.sortJsonArray(datasets);
+
+    return ok(new Gson().toJson(sortedDatasets));
   }
 
   /**
@@ -1480,7 +1493,7 @@ public class Application extends Controller {
 
       // Execution record
       JsonObject dataset = new JsonObject();
-      dataset.addProperty("flowtime", mrJobsList.get(mrJobsList.size() - 1).finishTime);
+      dataset.addProperty("flowtime", Utils.getFlowTime(mrJobsList.get(mrJobsList.size() - 1)));
       dataset.addProperty("runtime", totalFlowRuntime);
       dataset.addProperty("waittime", totalFlowDelay);
       dataset.addProperty("resourceused", totalFlowMemoryUsed);
@@ -1490,7 +1503,9 @@ public class Application extends Controller {
       datasets.add(dataset);
     }
 
-    return ok(new Gson().toJson(datasets));
+    JsonArray sortedDatasets = Utils.sortJsonArray(datasets);
+
+    return ok(new Gson().toJson(sortedDatasets));
   }
 
   /**

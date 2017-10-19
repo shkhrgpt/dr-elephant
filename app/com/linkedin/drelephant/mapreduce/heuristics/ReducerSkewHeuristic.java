@@ -21,18 +21,21 @@ import com.linkedin.drelephant.mapreduce.data.MapReduceApplicationData;
 import com.linkedin.drelephant.mapreduce.data.MapReduceTaskData;
 import com.linkedin.drelephant.configurations.heuristic.HeuristicConfigurationData;
 
+import java.util.Arrays;
+
+
 
 /**
- * This Heuristic analyses the skewness in the mapper input data
+ * This Heuristic analyses the skewness in the reducer input data
  */
-public class MapperDataSkewHeuristic extends GenericDataSkewHeuristic {
+public class ReducerSkewHeuristic extends GenericSkewHeuristic {
 
-  public MapperDataSkewHeuristic(HeuristicConfigurationData heuristicConfData) {
-    super(MapReduceCounterData.CounterName.HDFS_BYTES_READ, heuristicConfData);
+  public ReducerSkewHeuristic(HeuristicConfigurationData heuristicConfData) {
+    super(Arrays.asList(MapReduceCounterData.CounterName.REDUCE_SHUFFLE_BYTES), heuristicConfData);
   }
 
   @Override
   protected MapReduceTaskData[] getTasks(MapReduceApplicationData data) {
-    return data.getMapperData();
+    return data.getReducerData();
   }
 }
